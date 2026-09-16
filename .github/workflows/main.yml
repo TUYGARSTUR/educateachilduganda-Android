@@ -20,12 +20,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK packages
+      - name: Check Android SDK
         run: |
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          ls -la "$ANDROID_HOME"
+          ls -la "$ANDROID_HOME/platforms" || true
+          ls -la "$ANDROID_HOME/build-tools" || true
 
       - name: Install Gradle
         run: |
@@ -37,7 +38,8 @@ jobs:
       - name: Extract Android project
         run: |
           mkdir -p android-project
-          ZIP_FILE=$(find . -maxdepth 1 -iname "*.zip" -print -quit)
+
+          ZIP_FILE=$(find . -maxdepth 1 -type f -iname "*.zip" -print -quit)
 
           if [ -z "$ZIP_FILE" ]; then
             echo "ERROR: Android project ZIP not found."
@@ -59,6 +61,7 @@ jobs:
           fi
 
           PROJECT_DIR=$(dirname "$SETTINGS")
+
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           echo "Android project found at: $PROJECT_DIR"
 
