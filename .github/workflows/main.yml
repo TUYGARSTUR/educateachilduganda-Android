@@ -27,36 +27,31 @@ jobs:
 
       - name: Find Android project
         run: |
-          echo "Files in repository:"
-          find . -maxdepth 3 -type f | sort
+          echo "Searching for Android project..."
+          find . -name "settings.gradle" -o -name "settings.gradle.kts"
 
       - name: Build APK
         run: |
-          if [ -f "build.gradle" ] && [ -d "app" ]; then
-            echo "Android project found in repository root"
-            gradle :app:assembleDebug
-          else
-            ZIP_FILE=$(find . -maxdepth 2 -iname "*.zip" | head -n 1)
+          SETTINGS=$(find . -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" \) -print -quit)
 
-            if [ -n "$ZIP_FILE" ]; then
-              echo "Android project ZIP found: $ZIP_FILE"
-              mkdir -p android-project
-              unzip -q "$ZIP_FILE" -d android-project
-
-              PROJECT_DIR=$(find android-project -name "settings.gradle" -o -name "settings.gradle.kts" | head -n 1 | xargs dirname)
-
-              echo "Project directory: $PROJECT_DIR"
-              cd "$PROJECT_DIR"
-              gradle :app:assembleDebug
-            else
-              echo "ERROR: Android project or ZIP file was not found."
-              exit 1
-            fi
+          if [ -z "$SETTINGS" ]; then
+            echo "ERROR: settings.gradle was not found."
+            echo "Repository contents:"
+            find . -maxdepth 5 -type f | sort
+            exit 1
           fi
+
+          PROJECT_DIR=$(dirname "$SETTINGS")
+
+          echo "Android project found at:"
+          echo "$PROJECT_DIR"
+
+          cd "$PROJECT_DIR"
+
+          gradle :app:assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: EducateAChildUganda-APK
-          path: |
-            **/app/build/outputs/apk/debug/*.apk
+          path: "**/app/build/outputs/apk/debug/*.apk"
