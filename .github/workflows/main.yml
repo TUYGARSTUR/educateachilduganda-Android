@@ -15,40 +15,57 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.10.2'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Find Android project
+      - name: Install Android SDK packages
         run: |
-          echo "Searching for Android project..."
-          find . -name "settings.gradle" -o -name "settings.gradle.kts"
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Build APK
+      - name: Install Gradle
         run: |
-          SETTINGS=$(find . -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" \) -print -quit)
+          wget -q https://services.gradle.org/distributions/gradle-8.10.2-bin.zip
+          unzip -q gradle-8.10.2-bin.zip
+          echo "$PWD/gradle-8.10.2/bin" >> "$GITHUB_PATH"
+          gradle --version
+
+      - name: Extract Android project
+        run: |
+          mkdir -p android-project
+          ZIP_FILE=$(find . -maxdepth 1 -iname "*.zip" -print -quit)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: Android project ZIP not found."
+            ls -la
+            exit 1
+          fi
+
+          echo "Found ZIP: $ZIP_FILE"
+          unzip -q "$ZIP_FILE" -d android-project
+
+      - name: Locate Android project
+        run: |
+          SETTINGS=$(find android-project -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" \) -print -quit)
 
           if [ -z "$SETTINGS" ]; then
-            echo "ERROR: settings.gradle was not found."
-            echo "Repository contents:"
-            find . -maxdepth 5 -type f | sort
+            echo "ERROR: settings.gradle not found."
+            find android-project -maxdepth 6 -type f | sort
             exit 1
           fi
 
           PROJECT_DIR=$(dirname "$SETTINGS")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Android project found at: $PROJECT_DIR"
 
-          echo "Android project found at:"
-          echo "$PROJECT_DIR"
-
+      - name: Build APK
+        run: |
           cd "$PROJECT_DIR"
-
-          gradle :app:assembleDebug
+          gradle :app:assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
